@@ -1,1 +1,1 @@
-export const BASE_URL = "https://notepad-pea3.onrender.com";
+export const BASE_URL = "https://backend-2bkt.onrender.com";

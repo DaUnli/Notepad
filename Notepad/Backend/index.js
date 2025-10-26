@@ -19,7 +19,8 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "*",
+    origin: ["http://localhost:5173", "https://notepad-frontend-h386.onrender.com"],
+    credentials: true,
   })
 );
 
