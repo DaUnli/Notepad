@@ -23,8 +23,13 @@ const Navbar = ({ userInfo, onSearchNote, handleClearSearch }) => {
     handleClearSearch()
   };
   return (
-    <div className="bg-white flex items-center justify-between px-6 py-2 drop-shadow">
-      <h2 className="text-xt font-medium text-black py-2">NOTE NI </h2>
+    <div className="bg-white flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-2 drop-shadow">
+      <div className="w-full sm:w-auto flex items-center justify-between mb-2 sm:mb-0">
+        <h2 className="text-xl font-medium text-black">NOTE NI </h2>
+        <div className="sm:hidden">
+          <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+        </div>
+      </div>
 
       <Searchbar
         value={searchQuery}
@@ -32,8 +37,9 @@ const Navbar = ({ userInfo, onSearchNote, handleClearSearch }) => {
         handleSearch={handleSearch}
         onClearSearch={onClearSearch}
       />
-
-      <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+      <div className="hidden sm:block">
+        <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+      </div>
     </div>
   );
 };

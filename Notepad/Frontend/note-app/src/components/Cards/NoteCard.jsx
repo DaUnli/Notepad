@@ -29,14 +29,14 @@ const NoteCard = ({
       <p className="text-xs text-slate-600 mt-2">{content?.slice(0, 60)}</p>
 
       <div className="flex justify-between items-center mb-2 mt-2">
-        <span className="text-xs text-slate-500">{tag.map((item) => ` #${item}`)}</span>
-        <div>
+        <div className="text-xs text-slate-500">{tag.map((item) => ` #${item}`)}</div>
+        <div className="flex items-center gap-2">
           <FaEdit
-            className="inline-block mr-2 cursor-pointer text-blue-500"
+            className="icon-btn hover:text-green-600"
             onClick={onEdit}
           />
           <FaTrash
-            className="inline-block cursor-pointer text-red-500"
+            className="icon-btn hover:text-red-500"
             onClick={onDelete}
           />
         </div>

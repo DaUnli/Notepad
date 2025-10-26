@@ -63,8 +63,8 @@ const Signup = () => {
     <>
       <Narbar />
 
-      <div className="flex items-center justify-center bg-gray-100 p-4 min-h-screen -mt-20">
-        <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-md">
+      <div className="flex items-center justify-center bg-gray-50 p-4 sm:p-6 min-h-screen -mt-16">
+        <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-2xl shadow-lg">
           <form onSubmit={handleSignup} className="flex flex-col gap-5">
             <h4 className="text-2xl font-bold text-center text-gray-800 mb-6">
               SignUp
@@ -103,7 +103,7 @@ const Signup = () => {
 
             <p className="text-center text-gray-600">
               Already have an account? 
-              <Link to="/login" className="text-blue-600">
+              <Link to="/login" className="text-blue-600 font-medium ml-1">
                  Login
               </Link>
             </p>
