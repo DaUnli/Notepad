@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode"; // ✅ fixed import
+import { jwtDecode } from "jwt-decode";
 
 const AuthCheck = ({ children }) => {
   const token = localStorage.getItem("token");
