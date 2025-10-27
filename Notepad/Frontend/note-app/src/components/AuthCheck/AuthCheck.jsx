@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import jwtDecode from "jwt-decode";
+import { jwtDecode } from "jwt-decode"; // ✅ fixed import
 
 const AuthCheck = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -11,17 +11,15 @@ const AuthCheck = ({ children }) => {
 
   try {
     const decoded = jwtDecode(token);
-    const currentTime = Date.now() / 1000; // current time in seconds
+    const currentTime = Date.now() / 1000;
 
     if (decoded.exp < currentTime) {
-      // Token expired → remove token and redirect to login
       localStorage.removeItem("token");
       return <Navigate to="/login" replace />;
     }
 
-    return children; // still valid, continue
-  } catch (error) {
-    // Token invalid or corrupt
+    return children;
+  } catch (err) {
     localStorage.removeItem("token");
     return <Navigate to="/login" replace />;
   }
