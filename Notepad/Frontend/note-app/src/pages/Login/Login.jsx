@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Narbar from "../../components/Navbar/Navbar";
+import Navbar from "../../components/Navbar/Navbar";
 import { Link, useNavigate } from "react-router-dom";
 import Password from "../../components/Input/Password";
 import { validateEmail } from "../../utils/Helper";
@@ -9,41 +9,47 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
-  
-
   const navigate = useNavigate();
+
+  // Sanitize input (basic XSS prevention)
+  const sanitizeInput = (value) => {
+    const temp = document.createElement("div");
+    temp.textContent = value;
+    return temp.innerHTML;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (!validateEmail(email)) {
+    const sanitizedEmail = sanitizeInput(email.trim());
+    const sanitizedPassword = sanitizeInput(password.trim());
+
+    if (!validateEmail(sanitizedEmail)) {
       setError("Please enter a valid email");
       return;
     }
 
-    if (!password) {
+    if (!sanitizedPassword) {
       setError("Password cannot be empty");
       return;
     }
+
     setError("");
 
     try {
       const response = await axiosInstance.post("/login", {
-        email,
-        password,
+        email: sanitizedEmail,
+        password: sanitizedPassword,
       });
 
       if (response.data && response.data.accessToken) {
+        // Store token securely
         localStorage.setItem("token", response.data.accessToken);
         navigate("/dashboard");
       }
     } catch (error) {
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        setError(error.response.data.message);
+      if (error.response?.data?.message) {
+        setError(sanitizeInput(error.response.data.message));
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
@@ -52,7 +58,7 @@ const Login = () => {
 
   return (
     <>
-      <Narbar />
+      <Navbar />
 
       <div className="flex items-center justify-center bg-gray-50 p-4 sm:p-6 min-h-screen -mt-16">
         <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-2xl shadow-lg">
@@ -67,15 +73,21 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="email"
             />
 
             <Password
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
+              autoComplete="current-password"
             />
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && (
+              <p className="text-red-500 text-sm" aria-live="assertive">
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
