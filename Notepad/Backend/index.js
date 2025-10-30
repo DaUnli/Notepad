@@ -284,17 +284,21 @@ app.put(
       if (isPinned !== undefined) note.isPinned = isPinned;
 
       await note.save();
-
-      return res.json({ error: false, note, message: "Note updated successfully" });
+      return res.json({
+        error: false,
+        note,
+        message: "Note updated successfully",
+      });
     } catch (error) {
       console.error("❌ Edit Note Error:", error);
-      return res.status(500).json({ error: true, message: "Internal Server Error" });
+      return res
+        .status(500)
+        .json({ error: true, message: "Internal Server error" });
     }
   }
 );
-
-// get-all-notes
-app.get("/get-all-notes", authenticateToken, async (req, res) => {
+// get all notes
+app.get("/get-notes", authenticateToken, async (req, res) => {
   const user = req.user;
 
   try {
@@ -303,7 +307,6 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
     return res.json({
       error: false,
       notes,
-      message: "All note retrived successfully",
       message: "All notes retrieved successfully",
     });
   } catch (error) {
