@@ -13,7 +13,7 @@ const Signup = () => {
   const navigate = useNavigate();
 
   // 🔒 Sanitize input to prevent XSS attacks
-  const sanitizeInput = (value) => {
+  const sanitize = (value) => {
     const temp = document.createElement("div");
     temp.textContent = value;
     return temp.innerHTML;
@@ -21,53 +21,47 @@ const Signup = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    const sanitizedName = sanitize(name);
+    const sanitizedEmail = sanitize(email);
+    const sanitizedPassword = sanitize(password);
 
-    // Sanitize before validation
-    const sanitizedName = sanitizeInput(name.trim());
-    const sanitizedEmail = sanitizeInput(email.trim());
-    const sanitizedPassword = sanitizeInput(password.trim());
-
-    if (!sanitizedName) {
-      setError("Please enter a valid name");
+    if (
+      !sanitizedName ||
+      !validateEmail(sanitizedEmail) ||
+      sanitizedPassword.length < 6
+    ) {
+      setError("Please fill in all fields correctly");
       return;
     }
-
-    if (!validateEmail(sanitizedEmail)) {
-      setError("Please enter a valid email");
-      return;
-    }
-
-    if (sanitizedPassword.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
-
-    setError("");
 
     try {
-      const response = await axiosInstance.post("/create-account", {
-        fullName: sanitizedName,
-        email: sanitizedEmail,
-        password: sanitizedPassword,
-      });
+      setError("");
+      setLoading(true);
 
-      // Handle backend response safely
+      const response = await axiosInstance.post(
+        "/create-account",
+        {
+          fullName: sanitizedName,
+          email: sanitizedEmail,
+          password: sanitizedPassword,
+        },
+        { withCredentials: true }
+      );
+
       if (response.data?.error) {
-        setError(sanitizeInput(response.data.message));
+        setError(sanitize(response.data.message));
         return;
       }
 
-      if (response.data?.accessToken) {
-        // Store token safely (consider httpOnly cookie on backend later)
-        localStorage.setItem("token", response.data.accessToken);
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
     } catch (error) {
-      if (error.response?.data?.message) {
-        setError(sanitizeInput(error.response.data.message));
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
+      setError(
+        error.response?.data?.message
+          ? sanitize(error.response.data.message)
+          : "An unexpected error occurred. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
