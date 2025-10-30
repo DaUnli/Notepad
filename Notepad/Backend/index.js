@@ -1,177 +1,178 @@
 require("dotenv").config();
-
 const config = require("./config.json");
 const mongoose = require("mongoose");
-
-mongoose.connect(config.connectionString);
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { authenticateToken } = require("./utilities");
 
 const User = require("./models/user.model");
 const Note = require("./models/note.model");
 
-const express = require("express");
-const cors = require("cors");
+mongoose.connect(config.connectionString);
+
 const app = express();
 
-const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("./utilities");
-
+// === MIDDLEWARES ===
 app.use(express.json());
+app.use(cookieParser()); // required for reading cookies
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://notepad-frontend-h386.onrender.com"],
-    credentials: true,
+    origin: [
+      "http://localhost:5173",
+      "https://notepad-frontend-h386.onrender.com",
+    ],
+    credentials: true, // allow cookies
   })
 );
+
+// helper functions
+function createAccessToken(user) {
+  return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: "10m",
+  });
+}
+
+function createRefreshToken(user) {
+  return jwt.sign({ _id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: "7d",
+  });
+}
 
 app.get("/", (req, res) => {
   res.json({ data: "hello" });
 });
 
-// create-account
+// ========== REGISTER ==========
 app.post("/create-account", async (req, res) => {
   const { fullName, email, password } = req.body;
-  
-  if (!fullName) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Full Name is Required" });
+
+  if (!fullName || !email || !password) {
+    return res.status(400).json({ error: true, message: "All fields required" });
   }
 
-  if (!email) {
-    return res.status(400).json({ error: true, message: "Email is Required" });
-  }
+  const isUser = await User.findOne({ email });
+  if (isUser)
+    return res.json({ error: true, message: "User already exists" });
 
-  if (!password) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Password is Required" });
-  }
-
-  const isUser = await User.findOne({ email: email });
-
-  if (isUser) {
-    return res.json({
-      error: true,
-      message: "User already Exist",
-    });
-  }
-
-  const user = new User({
-    fullName,
-    email,
-    password,
-  });
-
+  const user = new User({ fullName, email, password });
   await user.save();
 
-  const accessToken = jwt.sign(
-    { _id: user._id.toString(), username: user.username },
-    process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "1h" }
-  );
+  // generate tokens
+  const accessToken = createAccessToken(user);
+  const refreshToken = createRefreshToken(user);
+
+  // send tokens in HttpOnly cookies
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 10 * 60 * 1000,
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
   return res.json({
     error: false,
-    user,
-    accessToken,
-    message: "Registration Successful",
+    message: "Registration successful",
+    user: { id: user._id, fullName, email },
   });
 });
 
-app.post("/Login", async (req, res) => {
+// ========== LOGIN ==========
+app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ message: "Email and password required" });
 
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
-  }
+  const user = await User.findOne({ email });
+  if (!user || user.password !== password)
+    return res.status(400).json({ error: true, message: "Invalid credentials" });
 
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" });
-  }
+  const accessToken = createAccessToken(user);
+  const refreshToken = createRefreshToken(user);
 
-  const userInfo = await User.findOne({ email: email });
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 10 * 60 * 1000,
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
-  if (!userInfo) {
-    return res.status(400).json({ message: "User not found" });
-  }
-
-  if (userInfo.email === email && userInfo.password === password) {
-    const accessToken = jwt.sign(
-      { _id: userInfo._id.toString(), email: userInfo.email },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    return res.json({
-      error: false,
-      message: "Login Successful",
-      email,
-      accessToken,
-    });
-  } else {
-    return res.status(400).json({
-      error: true,
-      message: "Invalid Credentials",
-    });
-  }
-});
-
-// get user
-app.get("/get-user", authenticateToken, async (req, res) => {
-  const user = req.user;
-
-  const isUser = await User.findOne({ _id: user._id });
-
-  if (!isUser) {
-    return res.sendStatus(401);
-  }
-
-  return res.json({
-    user: {
-      fullName: isUser.fullName,
-      email: isUser.email,
-      _id: isUser._id,
-      createdOn: isUser.createdOn,
-    },
-    message: "Successfully",
+  res.json({
+    error: false,
+    message: "Login successful",
+    user: { id: user._id, fullName: user.fullName, email: user.email },
   });
 });
 
-// add-note
-app.post("/add-note", authenticateToken, async (req, res) => {
-  const { title, content, tags } = req.body;
-  const user = req.user;
-
-  if (!title)
-    return res.status(400).json({ error: true, message: "Title is Required" });
-  if (!content)
-    return res
-      .status(400)
-      .json({ error: true, message: "Content is Required" });
+// ========== TOKEN REFRESH ==========
+app.post("/refresh", async (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) return res.status(401).json({ message: "No refresh token" });
 
   try {
-    const note = new Note({
-      title,
-      content,
-      tags: tags || [],
-      userId: user._id,
+    const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+    const user = await User.findById(payload._id);
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    const newAccessToken = createAccessToken(user);
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      maxAge: 10 * 60 * 1000,
     });
 
-    await note.save();
-
-    return res.json({
-      error: false,
-      note,
-      message: "Note added successfully",
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(403).json({ message: "Invalid refresh token" });
   }
+});
+
+// ========== LOGOUT ==========
+app.post("/logout", (req, res) => {
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  res.json({ message: "Logged out" });
+});
+
+// ========== PROTECTED ROUTES ==========
+app.get("/get-user", authenticateToken, async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) return res.sendStatus(401);
+  res.json({
+    user: {
+      fullName: user.fullName,
+      email: user.email,
+      _id: user._id,
+      createdOn: user.createdOn,
+    },
+  });
+});
+
+// ========== NOTES ==========
+app.post("/add-note", authenticateToken, async (req, res) => {
+  const { title, content, tags } = req.body;
+  if (!title || !content)
+    return res.status(400).json({ error: true, message: "Title & content required" });
+
+  const note = new Note({ title, content, tags: tags || [], userId: req.user._id });
+  await note.save();
+  res.json({ error: false, note, message: "Note added successfully" });
 });
 
 // edit-note
