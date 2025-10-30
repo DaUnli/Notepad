@@ -11,7 +11,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Sanitize input (basic XSS prevention)
+  // Basic input sanitization (XSS prevention)
   const sanitizeInput = (value) => {
     const temp = document.createElement("div");
     temp.textContent = value;
@@ -37,14 +37,18 @@ const Login = () => {
     setError("");
 
     try {
-      const response = await axiosInstance.post("/login", {
-        email: sanitizedEmail,
-        password: sanitizedPassword,
-      });
+      const response = await axiosInstance.post(
+        "/login",
+        {
+          email: sanitizedEmail,
+          password: sanitizedPassword,
+        },
+        {
+          withCredentials: true, // ✅ allow backend to send cookies
+        }
+      );
 
-      if (response.data && response.data.accessToken) {
-        // Store token securely
-        localStorage.setItem("token", response.data.accessToken);
+      if (response.data?.success) {
         navigate("/dashboard");
       }
     } catch (error) {
