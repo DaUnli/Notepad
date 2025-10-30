@@ -5,18 +5,19 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const helmet = require("helmet");
+const { body, validationResult } = require("express-validator");
 const { authenticateToken } = require("./utilities");
 
 const User = require("./models/user.model");
 const Note = require("./models/note.model");
 
-mongoose.connect(config.connectionString);
-
 const app = express();
 
-// === MIDDLEWARES ===
+// === SECURITY & BASIC MIDDLEWARE ===
 app.use(express.json());
-app.use(cookieParser()); // required for reading cookies
+app.use(cookieParser());
+app.use(helmet()); // 🛡️ Protects against XSS, CSP, etc.
 
 app.use(
   cors({
@@ -24,106 +25,135 @@ app.use(
       "http://localhost:5173",
       "https://notepad-frontend-h386.onrender.com",
     ],
-    credentials: true, // allow cookies
+    credentials: true,
   })
 );
 
-// helper functions
+// === DATABASE CONNECTION ===
+mongoose
+  .connect(config.connectionString)
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
+
+// === TOKEN HELPERS ===
 function createAccessToken(user) {
   return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
     expiresIn: "10m",
   });
 }
-
 function createRefreshToken(user) {
   return jwt.sign({ _id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
     expiresIn: "7d",
   });
 }
 
-app.get("/", (req, res) => {
-  res.json({ data: "hello" });
-});
+app.get("/", (req, res) => res.json({ data: "Hello Server Running ✅" }));
 
 // ========== REGISTER ==========
-app.post("/create-account", async (req, res) => {
-  const { fullName, email, password } = req.body;
+app.post(
+  "/create-account",
+  [
+    body("fullName").trim().escape(),
+    body("email").isEmail().normalizeEmail(),
+    body("password").isLength({ min: 6 }).escape(),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty())
+        return res.status(400).json({ error: true, message: errors.array() });
 
-  if (!fullName || !email || !password) {
-    return res.status(400).json({ error: true, message: "All fields required" });
+      const { fullName, email, password } = req.body;
+
+      const isUser = await User.findOne({ email });
+      if (isUser)
+        return res.json({ error: true, message: "User already exists" });
+
+      const user = new User({ fullName, email, password });
+      await user.save();
+
+      const accessToken = createAccessToken(user);
+      const refreshToken = createRefreshToken(user);
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+        maxAge: 10 * 60 * 1000,
+      });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        error: false,
+        message: "Registration successful",
+        user: { id: user._id, fullName, email },
+      });
+    } catch (err) {
+      console.error("❌ Create Account Error:", err);
+      return res
+        .status(500)
+        .json({ error: true, message: "Internal Server Error" });
+    }
   }
-
-  const isUser = await User.findOne({ email });
-  if (isUser)
-    return res.json({ error: true, message: "User already exists" });
-
-  const user = new User({ fullName, email, password });
-  await user.save();
-
-  // generate tokens
-  const accessToken = createAccessToken(user);
-  const refreshToken = createRefreshToken(user);
-
-  // send tokens in HttpOnly cookies
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    maxAge: 10 * 60 * 1000,
-  });
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-
-  return res.json({
-    error: false,
-    message: "Registration successful",
-    user: { id: user._id, fullName, email },
-  });
-});
+);
 
 // ========== LOGIN ==========
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ message: "Email and password required" });
+app.post(
+  "/login",
+  [body("email").isEmail().normalizeEmail(), body("password").trim().escape()],
+  async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password)
+        return res.status(400).json({ message: "Email and password required" });
 
-  const user = await User.findOne({ email });
-  if (!user || user.password !== password)
-    return res.status(400).json({ error: true, message: "Invalid credentials" });
+      const user = await User.findOne({ email });
+      if (!user || user.password !== password)
+        return res
+          .status(400)
+          .json({ error: true, message: "Invalid credentials" });
 
-  const accessToken = createAccessToken(user);
-  const refreshToken = createRefreshToken(user);
+      const accessToken = createAccessToken(user);
+      const refreshToken = createRefreshToken(user);
 
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    maxAge: 10 * 60 * 1000,
-  });
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+        maxAge: 10 * 60 * 1000,
+      });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
 
-  res.json({
-    error: false,
-    message: "Login successful",
-    user: { id: user._id, fullName: user.fullName, email: user.email },
-  });
-});
+      res.json({
+        error: false,
+        message: "Login successful",
+        user: { id: user._id, fullName: user.fullName, email: user.email },
+      });
+    } catch (err) {
+      console.error("❌ Login Error:", err);
+      return res
+        .status(500)
+        .json({ error: true, message: "Internal Server Error" });
+    }
+  }
+);
 
 // ========== TOKEN REFRESH ==========
 app.post("/refresh", async (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token) return res.status(401).json({ message: "No refresh token" });
-
   try {
+    const token = req.cookies.refreshToken;
+    if (!token) return res.status(401).json({ message: "No refresh token" });
+
     const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
     const user = await User.findById(payload._id);
     if (!user) return res.status(401).json({ message: "User not found" });
@@ -138,7 +168,7 @@ app.post("/refresh", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Refresh Token Error:", err);
     return res.status(403).json({ message: "Invalid refresh token" });
   }
 });
@@ -152,28 +182,55 @@ app.post("/logout", (req, res) => {
 
 // ========== PROTECTED ROUTES ==========
 app.get("/get-user", authenticateToken, async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (!user) return res.sendStatus(401);
-  res.json({
-    user: {
-      fullName: user.fullName,
-      email: user.email,
-      _id: user._id,
-      createdOn: user.createdOn,
-    },
-  });
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.sendStatus(401);
+    res.json({
+      user: {
+        fullName: user.fullName,
+        email: user.email,
+        _id: user._id,
+        createdOn: user.createdOn,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Get User Error:", err);
+    res.status(500).json({ error: true, message: "Internal Server Error" });
+  }
 });
 
-// ========== NOTES ==========
-app.post("/add-note", authenticateToken, async (req, res) => {
-  const { title, content, tags } = req.body;
-  if (!title || !content)
-    return res.status(400).json({ error: true, message: "Title & content required" });
+// ========== ADD NOTE ==========
+app.post(
+  "/add-note",
+  authenticateToken,
+  [
+    body("title").trim().escape(),
+    body("content").trim().escape(),
+    body("tags").optional().isArray(),
+  ],
+  async (req, res) => {
+    try {
+      const { title, content, tags } = req.body;
+      if (!title || !content)
+        return res
+          .status(400)
+          .json({ error: true, message: "Title & content required" });
 
-  const note = new Note({ title, content, tags: tags || [], userId: req.user._id });
-  await note.save();
-  res.json({ error: false, note, message: "Note added successfully" });
-});
+      const note = new Note({
+        title,
+        content,
+        tags: tags || [],
+        userId: req.user._id,
+      });
+      await note.save();
+
+      res.json({ error: false, note, message: "Note added successfully" });
+    } catch (error) {
+      console.error("❌ Add Note Error:", error);
+      res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+  }
+);
 
 // edit-note
 app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
@@ -323,7 +380,14 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   }
 });
 
+app.listen(8000, () => console.log("✅ Server running on port 8000"));
 
-app.listen(8000);
+// Global Error Handling
+process.on("unhandledRejection", (reason) =>
+  console.error("🔥 Unhandled Rejection:", reason)
+);
+process.on("uncaughtException", (err) =>
+  console.error("🔥 Uncaught Exception:", err)
+);
 
 module.exports = app;
