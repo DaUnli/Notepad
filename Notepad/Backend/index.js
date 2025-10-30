@@ -88,7 +88,8 @@ app.post(
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
-      return res.status(201).json({ // ⬅️ **IMPROVED: Changed status to 201 Created**
+      return res.status(201).json({
+        // ⬅️ **IMPROVED: Changed status to 201 Created**
         error: false,
         message: "Registration successful",
         user: { id: user._id, fullName, email },
@@ -105,24 +106,24 @@ app.post(
 // ========== LOGIN ==========
 app.post(
   "/login",
-  [
-    body("email").isEmail().normalizeEmail(),
-    body("password").trim().escape(),
-  ],
+  [body("email").isEmail().normalizeEmail(), body("password").trim().escape()],
   async (req, res) => {
     try {
       // ⬅️ **IMPROVED: Check validationResult here for consistency**
       const errors = validationResult(req);
       if (!errors.isEmpty())
-        return res.status(400).json({ error: true, message: "Invalid email format" }); 
-        
+        return res
+          .status(400)
+          .json({ error: true, message: "Invalid email format" });
+
       const { email, password } = req.body;
 
-      // Note: The original check for !email || !password is slightly redundant with express-validator, 
+      // Note: The original check for !email || !password is slightly redundant with express-validator,
       // but keeping it for immediate check before DB lookup if validation is optional for trim/escape.
       if (!email || !password)
-        return res.status(400).json({ error: true, message: "Email and password required" }); // ⬅️ **IMPROVED: Added error: true**
-
+        return res
+          .status(400)
+          .json({ error: true, message: "Email and password required" }); // ⬅️ **IMPROVED: Added error: true**
 
       const user = await User.findOne({ email });
       if (!user) {
@@ -131,7 +132,8 @@ app.post(
           .json({ error: true, message: "Invalid credentials" });
       }
       if (!(await bcrypt.compare(password, user.password)))
-        return res.status(401).json({ // ⬅️ **IMPROVED: Changed status to 401 Unauthorized**
+        return res.status(401).json({
+          // ⬅️ **IMPROVED: Changed status to 401 Unauthorized**
           error: true,
           message: "Invalid credentials",
         });
@@ -171,11 +173,13 @@ app.post(
 app.post("/refresh", async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
-    if (!token) return res.status(401).json({ error: true, message: "No refresh token" }); // ⬅️ **IMPROVED: Added error: true**
+    if (!token)
+      return res.status(401).json({ error: true, message: "No refresh token" }); // ⬅️ **IMPROVED: Added error: true**
 
     const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
     const user = await User.findById(payload._id);
-    if (!user) return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Added error: true**
+    if (!user)
+      return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Added error: true**
 
     const newAccessToken = createAccessToken(user);
     res.cookie("accessToken", newAccessToken, {
@@ -189,15 +193,25 @@ app.post("/refresh", async (req, res) => {
   } catch (err) {
     console.error("❌ Refresh Token Error:", err);
     // Use 403 Forbidden for invalid/expired token that a user cannot fix
-    return res.status(403).json({ error: true, message: "Invalid or expired refresh token" }); // ⬅️ **IMPROVED: Added error: true**
+    return res
+      .status(403)
+      .json({ error: true, message: "Invalid or expired refresh token" }); // ⬅️ **IMPROVED: Added error: true**
   }
 });
 
 // ========== LOGOUT ==========
 app.post("/logout", (req, res) => {
   // Clear cookies by setting a past expiry date
-  res.clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: "Lax" }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
-  res.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "Lax" }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+  }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+  }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
   res.json({ error: false, message: "Logged out successfully" }); // ⬅️ **IMPROVED: Consistent response structure**
 });
 
@@ -205,7 +219,8 @@ app.post("/logout", (req, res) => {
 app.get("/get-user", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user) return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Consistent error response**
+    if (!user)
+      return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Consistent error response**
     res.json({
       error: false, // ⬅️ **IMPROVED: Consistent response structure**
       user: {
@@ -250,7 +265,9 @@ app.post(
       });
       await note.save();
 
-      res.status(201).json({ error: false, note, message: "Note added successfully" }); // ⬅️ **IMPROVED: Changed status to 201 Created**
+      res
+        .status(201)
+        .json({ error: false, note, message: "Note added successfully" }); // ⬅️ **IMPROVED: Changed status to 201 Created**
     } catch (error) {
       console.error("❌ Add Note Error:", error);
       res.status(500).json({ error: true, message: "Internal Server Error" });
@@ -271,19 +288,26 @@ app.put(
         body("tags").exists(),
         body("isPinned").exists(),
       ],
-      { message: "At least one field (title, content, tags, or isPinned) is required for update." }
+      {
+        message:
+          "At least one field (title, content, tags, or isPinned) is required for update.",
+      }
     ), // ⬅️ **IMPROVED: Added specific error message to oneOf**
     body("title").optional().trim().escape(),
     body("content").optional().trim().escape(),
-    body("tags").optional().isArray().withMessage("Tags must be an array if provided"), // ⬅️ **IMPROVED: Added error message**
-    body("isPinned").optional().isBoolean().withMessage("isPinned must be a boolean if provided"), // ⬅️ **IMPROVED: Added error message**
+    body("tags")
+      .optional()
+      .isArray()
+      .withMessage("Tags must be an array if provided"), // ⬅️ **IMPROVED: Added error message**
+    body("isPinned")
+      .optional()
+      .isBoolean()
+      .withMessage("isPinned must be a boolean if provided"), // ⬅️ **IMPROVED: Added error message**
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res
-        .status(400)
-        .json({ error: true, message: errors.array() }); // ⬅️ **IMPROVED: Return full errors.array()**
+      return res.status(400).json({ error: true, message: errors.array() }); // ⬅️ **IMPROVED: Return full errors.array()**
     }
 
     const noteId = req.params.noteId;
@@ -301,9 +325,9 @@ app.put(
       // This allows partial updates
       if (title !== undefined) note.title = title;
       if (content !== undefined) note.content = content;
-      // The tags logic is slightly more complex if you want to allow an empty array, 
+      // The tags logic is slightly more complex if you want to allow an empty array,
       // which 'if (tags !== undefined)' handles correctly.
-      if (tags !== undefined) note.tags = tags; 
+      if (tags !== undefined) note.tags = tags;
       if (isPinned !== undefined) note.isPinned = isPinned;
 
       await note.save();
@@ -326,7 +350,10 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
   const user = req.user;
 
   try {
-    const notes = await Note.find({ userId: user._id }).sort({ isPinned: -1, updatedOn: -1 }); // ⬅️ **IMPROVED: Added secondary sort by updatedOn**
+    const notes = await Note.find({ userId: user._id }).sort({
+      isPinned: -1,
+      updatedOn: -1,
+    }); // ⬅️ **IMPROVED: Added secondary sort by updatedOn**
 
     return res.json({
       error: false,
@@ -352,7 +379,12 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
     const result = await Note.deleteOne({ _id: noteId, userId: user._id });
 
     if (result.deletedCount === 0) {
-      return res.status(404).json({ error: true, message: "Note not found or you don't have permission" }); // ⬅️ **IMPROVED: Better error message**
+      return res
+        .status(404)
+        .json({
+          error: true,
+          message: "Note not found or you don't have permission",
+        }); // ⬅️ **IMPROVED: Better error message**
     }
 
     return res.json({
@@ -372,7 +404,8 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   const user = req.user;
   const { query } = req.query;
 
-  if (!query || query.trim() === "") { // ⬅️ **IMPROVED: Check for empty string after trim**
+  if (!query || query.trim() === "") {
+    // ⬅️ **IMPROVED: Check for empty string after trim**
     return res.status(400).json({
       error: true,
       message: "Search query is required and cannot be empty",
@@ -407,7 +440,7 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
 
 const startServer = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI); // ⬅️ THIS IS THE CRITICAL LINE
     console.log("✅ MongoDB connected successfully");
 
     const PORT = process.env.PORT || 8000;
