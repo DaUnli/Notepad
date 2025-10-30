@@ -56,10 +56,20 @@ const Signup = () => {
 
       navigate("/dashboard");
     } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        "An unexpected error occurred. Please try again.";
+
+      // If the message is an array (from express-validator), take the first error.
+      const displayMessage = Array.isArray(errorMessage)
+        ? errorMessage[0].msg
+        : errorMessage;
+
       setError(
         error.response?.data?.message
           ? sanitize(error.response.data.message)
           : "An unexpected error occurred. Please try again."
+        sanitize(displayMessage)
       );
     } finally {
       setLoading(false);
