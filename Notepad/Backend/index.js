@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const config = require("./config.json");
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -324,7 +324,7 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
     console.error("❌ Delete Note Error:", error);
     return res
       .status(500)
-      .json({ error: true, message: "Internal Server error" });
+      .json({ error: true, message: "Internal Server Error" });
   }
 });
 
@@ -332,7 +332,7 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   const user = req.user;
   const { query } = req.query;
 
-  if (!query) {
+  if (!query || query.trim() === "") {
     return res.status(400).json({
       error: true,
       message: "Search query is required",
@@ -366,9 +366,8 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
 
 const startServer = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(config.connectionString);
     console.log("✅ MongoDB connected successfully");
-
     const PORT = process.env.PORT || 8000;
     app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   } catch (err) {
