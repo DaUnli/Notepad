@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config(); // ⬅️ **FIXED: Removed 'repair'**
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -74,20 +74,21 @@ app.post(
       const accessToken = createAccessToken(user);
       const refreshToken = createRefreshToken(user);
 
+      // Set cookies with HttpOnly, Secure, and SameSite=Lax for security
       res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: "Lax",
-        maxAge: 10 * 60 * 1000,
+        maxAge: 10 * 60 * 1000, // 10 minutes
       });
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: "Lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
-      return res.json({
+      return res.status(201).json({ // ⬅️ **IMPROVED: Changed status to 201 Created**
         error: false,
         message: "Registration successful",
         user: { id: user._id, fullName, email },
@@ -104,21 +105,33 @@ app.post(
 // ========== LOGIN ==========
 app.post(
   "/login",
-  [body("email").isEmail().normalizeEmail(), body("password").trim().escape()],
+  [
+    body("email").isEmail().normalizeEmail(),
+    body("password").trim().escape(),
+  ],
   async (req, res) => {
     try {
+      // ⬅️ **IMPROVED: Check validationResult here for consistency**
+      const errors = validationResult(req);
+      if (!errors.isEmpty())
+        return res.status(400).json({ error: true, message: "Invalid email format" }); 
+        
       const { email, password } = req.body;
+
+      // Note: The original check for !email || !password is slightly redundant with express-validator, 
+      // but keeping it for immediate check before DB lookup if validation is optional for trim/escape.
       if (!email || !password)
-        return res.status(400).json({ message: "Email and password required" });
+        return res.status(400).json({ error: true, message: "Email and password required" }); // ⬅️ **IMPROVED: Added error: true**
+
 
       const user = await User.findOne({ email });
       if (!user) {
         return res
-          .status(400)
+          .status(401) // ⬅️ **IMPROVED: Changed status to 401 Unauthorized for invalid credentials**
           .json({ error: true, message: "Invalid credentials" });
       }
       if (!(await bcrypt.compare(password, user.password)))
-        return res.status(400).json({
+        return res.status(401).json({ // ⬅️ **IMPROVED: Changed status to 401 Unauthorized**
           error: true,
           message: "Invalid credentials",
         });
@@ -126,17 +139,18 @@ app.post(
       const accessToken = createAccessToken(user);
       const refreshToken = createRefreshToken(user);
 
+      // Set cookies with HttpOnly, Secure, and SameSite=Lax for security
       res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: "Lax",
-        maxAge: 10 * 60 * 1000,
+        maxAge: 10 * 60 * 1000, // 10 minutes
       });
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: "Lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
       res.json({
@@ -157,11 +171,11 @@ app.post(
 app.post("/refresh", async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
-    if (!token) return res.status(401).json({ message: "No refresh token" });
+    if (!token) return res.status(401).json({ error: true, message: "No refresh token" }); // ⬅️ **IMPROVED: Added error: true**
 
     const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
     const user = await User.findById(payload._id);
-    if (!user) return res.status(401).json({ message: "User not found" });
+    if (!user) return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Added error: true**
 
     const newAccessToken = createAccessToken(user);
     res.cookie("accessToken", newAccessToken, {
@@ -171,26 +185,29 @@ app.post("/refresh", async (req, res) => {
       maxAge: 10 * 60 * 1000,
     });
 
-    res.json({ ok: true });
+    res.json({ error: false, message: "Access token refreshed" }); // ⬅️ **IMPROVED: Consistent response structure**
   } catch (err) {
     console.error("❌ Refresh Token Error:", err);
-    return res.status(403).json({ message: "Invalid refresh token" });
+    // Use 403 Forbidden for invalid/expired token that a user cannot fix
+    return res.status(403).json({ error: true, message: "Invalid or expired refresh token" }); // ⬅️ **IMPROVED: Added error: true**
   }
 });
 
 // ========== LOGOUT ==========
 app.post("/logout", (req, res) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
-  res.json({ message: "Logged out" });
+  // Clear cookies by setting a past expiry date
+  res.clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: "Lax" }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
+  res.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "Lax" }); // ⬅️ **IMPROVED: Added cookie options for proper clearing**
+  res.json({ error: false, message: "Logged out successfully" }); // ⬅️ **IMPROVED: Consistent response structure**
 });
 
 // ========== PROTECTED ROUTES ==========
 app.get("/get-user", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user) return res.sendStatus(401);
+    if (!user) return res.status(401).json({ error: true, message: "User not found" }); // ⬅️ **IMPROVED: Consistent error response**
     res.json({
+      error: false, // ⬅️ **IMPROVED: Consistent response structure**
       user: {
         fullName: user.fullName,
         email: user.email,
@@ -211,10 +228,14 @@ app.post(
   [
     body("title").trim().escape(),
     body("content").trim().escape(),
-    body("tags").optional().isArray(),
+    body("tags").optional().isArray().withMessage("Tags must be an array"), // ⬅️ **IMPROVED: Added error message**
   ],
   async (req, res) => {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty())
+        return res.status(400).json({ error: true, message: errors.array() }); // ⬅️ **IMPROVED: Check validation result**
+
       const { title, content, tags } = req.body;
       if (!title || !content)
         return res
@@ -229,7 +250,7 @@ app.post(
       });
       await note.save();
 
-      res.json({ error: false, note, message: "Note added successfully" });
+      res.status(201).json({ error: false, note, message: "Note added successfully" }); // ⬅️ **IMPROVED: Changed status to 201 Created**
     } catch (error) {
       console.error("❌ Add Note Error:", error);
       res.status(500).json({ error: true, message: "Internal Server Error" });
@@ -243,38 +264,46 @@ app.put(
   authenticateToken,
   [
     // Ensure at least one field is being updated
-    oneOf([
-      body("title").exists(),
-      body("content").exists(),
-      body("tags").exists(),
-      body("isPinned").exists(),
-    ]),
+    oneOf(
+      [
+        body("title").exists(),
+        body("content").exists(),
+        body("tags").exists(),
+        body("isPinned").exists(),
+      ],
+      { message: "At least one field (title, content, tags, or isPinned) is required for update." }
+    ), // ⬅️ **IMPROVED: Added specific error message to oneOf**
     body("title").optional().trim().escape(),
     body("content").optional().trim().escape(),
-    body("tags").optional().isArray(),
-    body("isPinned").optional().isBoolean(),
+    body("tags").optional().isArray().withMessage("Tags must be an array if provided"), // ⬅️ **IMPROVED: Added error message**
+    body("isPinned").optional().isBoolean().withMessage("isPinned must be a boolean if provided"), // ⬅️ **IMPROVED: Added error message**
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res
         .status(400)
-        .json({ error: true, message: "No changes provided or invalid data" });
+        .json({ error: true, message: errors.array() }); // ⬅️ **IMPROVED: Return full errors.array()**
     }
 
     const noteId = req.params.noteId;
     const { title, content, tags, isPinned } = req.body;
 
     try {
+      // Find the note and ensure it belongs to the authenticated user
       const note = await Note.findOne({ _id: noteId, userId: req.user._id });
 
       if (!note) {
         return res.status(404).json({ error: true, message: "Note not found" });
       }
 
+      // Update fields only if they are explicitly passed in the request body
+      // This allows partial updates
       if (title !== undefined) note.title = title;
       if (content !== undefined) note.content = content;
-      if (tags !== undefined) note.tags = tags;
+      // The tags logic is slightly more complex if you want to allow an empty array, 
+      // which 'if (tags !== undefined)' handles correctly.
+      if (tags !== undefined) note.tags = tags; 
       if (isPinned !== undefined) note.isPinned = isPinned;
 
       await note.save();
@@ -291,12 +320,13 @@ app.put(
     }
   }
 );
+
 // get-all-notes
 app.get("/get-all-notes", authenticateToken, async (req, res) => {
   const user = req.user;
 
   try {
-    const notes = await Note.find({ userId: user._id }).sort({ isPinned: -1 });
+    const notes = await Note.find({ userId: user._id }).sort({ isPinned: -1, updatedOn: -1 }); // ⬅️ **IMPROVED: Added secondary sort by updatedOn**
 
     return res.json({
       error: false,
@@ -318,13 +348,12 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
   const user = req.user;
 
   try {
-    const note = await Note.findOne({ _id: noteId, userId: user._id });
+    // Use findOneAndDelete or deleteOne for efficiency if you don't need the document object
+    const result = await Note.deleteOne({ _id: noteId, userId: user._id });
 
-    if (!note) {
-      return res.status(404).json({ error: true, message: "Note not found" });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: true, message: "Note not found or you don't have permission" }); // ⬅️ **IMPROVED: Better error message**
     }
-
-    await Note.deleteOne({ _id: noteId, userId: user._id });
 
     return res.json({
       error: false,
@@ -343,15 +372,15 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   const user = req.user;
   const { query } = req.query;
 
-  if (!query) {
+  if (!query || query.trim() === "") { // ⬅️ **IMPROVED: Check for empty string after trim**
     return res.status(400).json({
       error: true,
-      message: "Search query is required",
+      message: "Search query is required and cannot be empty",
     });
   }
 
   try {
-    // Escape special characters to prevent ReDoS attacks
+    // Good practice: Escape special characters to prevent ReDoS attacks
     const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 
     const matchingNotes = await Note.find({
@@ -360,7 +389,7 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
         { title: { $regex: new RegExp(escapedQuery, "i") } },
         { content: { $regex: new RegExp(escapedQuery, "i") } },
       ],
-    });
+    }).sort({ isPinned: -1, updatedOn: -1 }); // ⬅️ **IMPROVED: Consistent sorting for search results**
 
     return res.json({
       error: false,
