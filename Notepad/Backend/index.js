@@ -29,12 +29,6 @@ app.use(
   })
 );
 
-// === DATABASE CONNECTION ===
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ MongoDB connected successfully"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
-
 // === TOKEN HELPERS ===
 function createAccessToken(user) {
   return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
@@ -382,7 +376,20 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   }
 });
 
-app.listen(8000, () => console.log("✅ Server running on port 8000"));
+const startServer = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("✅ MongoDB connected successfully");
+
+    const PORT = process.env.PORT || 8000;
+    app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1); // Exit with failure code
+  }
+};
+
+startServer();
 
 // Global Error Handling
 process.on("unhandledRejection", (reason) =>
