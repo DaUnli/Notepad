@@ -54,8 +54,7 @@ app.post(
     body("email").isEmail().normalizeEmail(),
     body("password")
       .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters")
-      .escape(),
+      .withMessage("Password must be at least 6 characters"),
   ],
   async (req, res) => {
     try {
@@ -110,7 +109,7 @@ app.post(
 // ========== LOGIN ==========
 app.post(
   "/login",
-  [body("email").isEmail().normalizeEmail(), body("password").trim().escape()],
+  [body("email").isEmail().normalizeEmail(), body("password").trim()],
   async (req, res) => {
     try {
       const errors = validationResult(req);

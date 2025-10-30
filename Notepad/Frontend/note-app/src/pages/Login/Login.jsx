@@ -12,25 +12,18 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Basic input sanitization (XSS prevention)
-  const sanitizeInput = (value) => {
-    const temp = document.createElement("div");
-    temp.textContent = value;
-    return temp.innerHTML;
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const sanitizedEmail = sanitizeInput(email.trim());
-    const sanitizedPassword = sanitizeInput(password.trim());
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    if (!validateEmail(sanitizedEmail)) {
+    if (!validateEmail(trimmedEmail)) {
       setError("Please enter a valid email");
       return;
     }
 
-    if (!sanitizedPassword) {
+    if (!trimmedPassword) {
       setError("Password cannot be empty");
       return;
     }
@@ -42,8 +35,8 @@ const Login = () => {
       const response = await axiosInstance.post(
         "/login",
         {
-          email: sanitizedEmail,
-          password: sanitizedPassword,
+          email: trimmedEmail,
+          password: trimmedPassword,
         },
         {
           withCredentials: true, // ✅ allow backend to send cookies
@@ -55,7 +48,7 @@ const Login = () => {
       }
     } catch (error) {
       if (error.response?.data?.message) {
-        setError(sanitizeInput(error.response.data.message));
+        setError(error.response.data.message);
       } else {
         setError("An unexpected error occurred. Please try again.");
       }

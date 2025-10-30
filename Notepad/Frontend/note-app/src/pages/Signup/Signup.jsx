@@ -13,23 +13,15 @@ const Signup = () => {
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
 
-  // 🔒 Sanitize input to prevent XSS attacks
-  const sanitize = (value) => {
-    const temp = document.createElement("div");
-    temp.textContent = value;
-    return temp.innerHTML;
-  };
-
   const handleSignup = async (e) => {
     e.preventDefault();
-    const sanitizedName = sanitize(name);
-    const sanitizedEmail = sanitize(email);
-    const sanitizedPassword = sanitize(password);
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
 
     if (
-      !sanitizedName ||
-      !validateEmail(sanitizedEmail) ||
-      sanitizedPassword.length < 6
+      !trimmedName ||
+      !validateEmail(trimmedEmail) ||
+      password.length < 6
     ) {
       setError("Please fill in all fields correctly");
       return;
@@ -42,9 +34,9 @@ const Signup = () => {
       const response = await axiosInstance.post(
         "/create-account",
         {
-          fullName: sanitizedName,
-          email: sanitizedEmail,
-          password: sanitizedPassword,
+          fullName: trimmedName,
+          email: trimmedEmail,
+          password: password,
         },
         { withCredentials: true }
       );
@@ -65,9 +57,7 @@ const Signup = () => {
         ? errorMessage[0].msg
         : errorMessage;
 
-      setError(
-        sanitize(displayMessage)
-      );
+      setError(displayMessage);
     } finally {
       setLoading(false);
     }
