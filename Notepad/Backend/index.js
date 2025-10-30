@@ -297,8 +297,8 @@ app.put(
     }
   }
 );
-// get all notes
-app.get("/get-notes", authenticateToken, async (req, res) => {
+// get-all-notes
+app.get("/get-all-notes", authenticateToken, async (req, res) => {
   const user = req.user;
 
   try {
@@ -334,7 +334,7 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
 
     return res.json({
       error: false,
-      message: "Note deleted succesfully",
+      message: "Note deleted successfully",
     });
   } catch (error) {
     console.error("❌ Delete Note Error:", error);
