@@ -281,8 +281,7 @@ app.put(
     }
   }
 );
-
-// get-all-notes
+// get all notes
 app.get("/get-all-notes", authenticateToken, async (req, res) => {
   const user = req.user;
 
