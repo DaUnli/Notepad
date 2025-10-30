@@ -67,7 +67,9 @@ app.post(
 
       const isUser = await User.findOne({ email });
       if (isUser)
-        return res.json({ error: true, message: "User already exists" });
+        return res
+          .status(409)
+          .json({ error: true, message: "User already exists" });
 
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
@@ -302,6 +304,7 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
       error: false,
       notes,
       message: "All note retrived successfully",
+      message: "All notes retrieved successfully",
     });
   } catch (error) {
     console.error("❌ Get All Notes Error:", error);
@@ -351,11 +354,14 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   }
 
   try {
+    // Escape special characters to prevent ReDoS attacks
+    const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
     const matchingNotes = await Note.find({
       userId: user._id,
       $or: [
-        { title: { $regex: new RegExp(query, "i") } },
-        { content: { $regex: new RegExp(query, "i") } },
+        { title: { $regex: new RegExp(escapedQuery, "i") } },
+        { content: { $regex: new RegExp(escapedQuery, "i") } },
       ],
     });
 
