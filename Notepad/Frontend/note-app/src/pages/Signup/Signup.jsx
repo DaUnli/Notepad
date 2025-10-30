@@ -66,9 +66,6 @@ const Signup = () => {
         : errorMessage;
 
       setError(
-        error.response?.data?.message
-          ? sanitize(error.response.data.message)
-          : "An unexpected error occurred. Please try again."
         sanitize(displayMessage)
       );
     } finally {

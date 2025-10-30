@@ -9,6 +9,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // Basic input sanitization (XSS prevention)
@@ -37,6 +38,7 @@ const Login = () => {
     setError("");
 
     try {
+      setLoading(true);
       const response = await axiosInstance.post(
         "/login",
         {
@@ -57,6 +59,8 @@ const Login = () => {
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,9 +99,10 @@ const Login = () => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+              className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              disabled={loading}
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
 
             <p className="text-center text-gray-600">
