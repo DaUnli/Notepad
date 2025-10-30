@@ -1,12 +1,12 @@
 require("dotenv").config();
-const config = require("./config.json");
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const helmet = require("helmet");
-const { body, validationResult } = require("express-validator");
+const bcrypt = require("bcrypt");
+const { body, validationResult, oneOf } = require("express-validator");
 const { authenticateToken } = require("./utilities");
 
 const User = require("./models/user.model");
@@ -31,7 +31,7 @@ app.use(
 
 // === DATABASE CONNECTION ===
 mongoose
-  .connect(config.connectionString)
+  .connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected successfully"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -69,7 +69,10 @@ app.post(
       if (isUser)
         return res.json({ error: true, message: "User already exists" });
 
-      const user = new User({ fullName, email, password });
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      const user = new User({ fullName, email, password: hashedPassword });
       await user.save();
 
       const accessToken = createAccessToken(user);
@@ -113,10 +116,16 @@ app.post(
         return res.status(400).json({ message: "Email and password required" });
 
       const user = await User.findOne({ email });
-      if (!user || user.password !== password)
+      if (!user) {
         return res
           .status(400)
           .json({ error: true, message: "Invalid credentials" });
+      }
+      if (!(await bcrypt.compare(password, user.password)))
+        return res.status(400).json({
+          error: true,
+          message: "Invalid credentials",
+        });
 
       const accessToken = createAccessToken(user);
       const refreshToken = createRefreshToken(user);
@@ -233,43 +242,54 @@ app.post(
 );
 
 // edit-note
-app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
-  const noteId = req.params.noteId;
-  const { title, content, tags, isPinned } = req.body;
-  const user = req.user;
-
-  if (!title && !content && !tags) {
-    return res
-      .status(400)
-      .json({ error: true, message: "No changes provided" });
-  }
-
-  try {
-    const note = await Note.findOne({ _id: noteId, userId: user._id });
-
-    if (!note) {
-      return res.status(403).json({ error: true, message: "Forbidden" });
+app.put(
+  "/edit-note/:noteId",
+  authenticateToken,
+  [
+    // Ensure at least one field is being updated
+    oneOf([
+      body("title").exists(),
+      body("content").exists(),
+      body("tags").exists(),
+      body("isPinned").exists(),
+    ]),
+    body("title").optional().trim().escape(),
+    body("content").optional().trim().escape(),
+    body("tags").optional().isArray(),
+    body("isPinned").optional().isBoolean(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res
+        .status(400)
+        .json({ error: true, message: "No changes provided or invalid data" });
     }
 
-    if (title) note.title = title;
-    if (content) note.content = content;
-    if (tags) note.tags = tags;
-    if (isPinned) note.isPinned = isPinned;
+    const noteId = req.params.noteId;
+    const { title, content, tags, isPinned } = req.body;
 
-    await note.save();
+    try {
+      const note = await Note.findOne({ _id: noteId, userId: req.user._id });
 
-    return res.json({
-      error: false,
-      note,
-      message: "Note updated successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+      if (!note) {
+        return res.status(404).json({ error: true, message: "Note not found" });
+      }
+
+      if (title !== undefined) note.title = title;
+      if (content !== undefined) note.content = content;
+      if (tags !== undefined) note.tags = tags;
+      if (isPinned !== undefined) note.isPinned = isPinned;
+
+      await note.save();
+
+      return res.json({ error: false, note, message: "Note updated successfully" });
+    } catch (error) {
+      console.error("❌ Edit Note Error:", error);
+      return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
   }
-});
+);
 
 // get-all-notes
 app.get("/get-all-notes", authenticateToken, async (req, res) => {
@@ -284,6 +304,7 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
       message: "All note retrived successfully",
     });
   } catch (error) {
+    console.error("❌ Get All Notes Error:", error);
     return res.status(500).json({
       error: true,
       message: "Internal Server Error",
@@ -310,39 +331,10 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
       message: "Note deleted succesfully",
     });
   } catch (error) {
+    console.error("❌ Delete Note Error:", error);
     return res
       .status(500)
       .json({ error: true, message: "Internal Server error" });
-  }
-});
-
-// update isPinned Value
-app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
-  const noteId = req.params.noteId;
-  const { title, content, tags, isPinned } = req.body;
-  const user = req.user;
-
-  try {
-    const note = await Note.findOne({ _id: noteId, userId: user._id });
-
-    if (!note) {
-      return res.status(403).json({ error: true, message: "Note not found" });
-    }
-
-    note.isPinned = isPinned;
-
-    await note.save();
-
-    return res.json({
-      error: false,
-      note,
-      message: "Note updated successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
   }
 });
 
@@ -373,6 +365,7 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
       message: "Notes matching the search query retrieved successfully",
     });
   } catch (error) {
+    console.error("❌ Search Notes Error:", error);
     return res.status(500).json({
       error: true,
       message: "Internal Server Error",

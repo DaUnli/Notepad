@@ -10,6 +10,7 @@ const Signup = () => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
 
   // 🔒 Sanitize input to prevent XSS attacks
@@ -109,9 +110,10 @@ const Signup = () => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+              className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              disabled={loading}
             >
-              Create Account
+              {loading ? "Creating Account..." : "Create Account"}
             </button>
 
             <p className="text-center text-gray-600">

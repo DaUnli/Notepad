@@ -48,7 +48,7 @@ const Login = () => {
         }
       );
 
-      if (response.data?.success) {
+      if (response.data && !response.data.error) {
         navigate("/dashboard");
       }
     } catch (error) {
