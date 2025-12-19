@@ -30,7 +30,7 @@ const Login = () => {
         localStorage.setItem("token", response.data.accessToken);
         localStorage.setItem("refreshToken", response.data.refreshToken);
         navigate("/dashboard");
-      } else if (response.data?.message) setError(response.data.message);
+      }
     } catch (error) {
       if (error.response?.data?.message) {
         setError(error.response.data.message);
