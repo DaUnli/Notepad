@@ -37,8 +37,7 @@ const Signup = () => {
           fullName: trimmedName,
           email: trimmedEmail,
           password: password,
-        },
-        { withCredentials: true }
+        }
       );
 
       if (response.data?.error) {
