@@ -3,7 +3,6 @@ const config = require("./config.json");
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const helmet = require("helmet");
 const bcrypt = require("bcrypt");
@@ -17,7 +16,6 @@ const app = express();
 
 // === SECURITY & BASIC MIDDLEWARE ===
 app.use(express.json());
-app.use(cookieParser());
 app.use(helmet()); // 🛡️ Protects against XSS, CSP, etc.
 
 app.use(
@@ -79,22 +77,11 @@ app.post(
       const accessToken = createAccessToken(user);
       const refreshToken = createRefreshToken(user);
 
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        maxAge: 10 * 60 * 1000,
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
       return res.status(201).json({
         error: false,
         message: "Registration successful",
+        accessToken,
+        refreshToken,
         user: { id: user._id, fullName, email },
       });
     } catch (err) {
@@ -136,22 +123,11 @@ app.post(
       const accessToken = createAccessToken(user);
       const refreshToken = createRefreshToken(user);
 
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        maxAge: 10 * 60 * 1000,
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
       res.json({
         error: false,
         message: "Login successful",
+        accessToken,
+        refreshToken,
         user: { id: user._id, fullName: user.fullName, email: user.email },
       });
     } catch (err) {
