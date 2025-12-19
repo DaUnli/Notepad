@@ -14,6 +14,9 @@ const Note = require("./models/note.model");
 
 const app = express();
 
+// Sanitize mongoose queries to prevent injection attacks
+mongoose.set("sanitizeFilter", true);
+
 // === SECURITY & BASIC MIDDLEWARE ===
 app.use(express.json());
 app.use(helmet()); // 🛡️ Protects against XSS, CSP, etc.
@@ -24,7 +27,6 @@ app.use(
       "http://localhost:5173",
       "https://notepad-frontend-h386.onrender.com",
     ],
-    credentials: true,
   })
 );
 
@@ -58,7 +60,9 @@ app.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty())
-        return res.status(400).json({ error: true, message: errors.array() });
+        return res
+          .status(400)
+          .json({ error: true, message: errors.array()[0].msg });
 
       const { fullName, email, password } = req.body;
 
@@ -96,21 +100,19 @@ app.post(
 // ========== LOGIN ==========
 app.post(
   "/login",
-  [body("email").isEmail().normalizeEmail(), body("password").trim()],
+  [
+    body("email").isEmail().withMessage("Please enter a valid email.").normalizeEmail(),
+    body("password").notEmpty().withMessage("Password is required."),
+  ],
   async (req, res) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty())
         return res
           .status(400)
-          .json({ error: true, message: "Invalid email format" });
+          .json({ error: true, message: errors.array()[0].msg });
 
       const { email, password } = req.body;
-
-      if (!email || !password)
-        return res
-          .status(400)
-          .json({ error: true, message: "Email and password required" });
 
       const user = await User.findOne({ email });
 
@@ -168,22 +170,24 @@ app.post(
   "/add-note",
   authenticateToken,
   [
-    body("title").trim().escape(),
-    body("content").trim().escape(),
+    body("title").notEmpty().withMessage("Title is required").trim().escape(),
+    body("content")
+      .notEmpty()
+      .withMessage("Content is required")
+      .trim()
+      .escape(),
     body("tags").optional().isArray(),
   ],
   async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res
+        .status(400)
+        .json({ error: true, message: errors.array()[0].msg });
+    }
+
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty())
-        return res.status(400).json({ error: true, message: errors.array() });
-
       const { title, content, tags } = req.body;
-      if (!title || !content)
-        return res
-          .status(400)
-          .json({ error: true, message: "Title & content required" });
-
       const note = new Note({
         title,
         content,
@@ -236,10 +240,10 @@ app.put(
         return res.status(404).json({ error: true, message: "Note not found" });
       }
 
-      if (title !== undefined) note.title = title;
-      if (content !== undefined) note.content = content;
-      if (tags !== undefined) note.tags = tags;
-      if (isPinned !== undefined) note.isPinned = isPinned;
+      if (req.body.title !== undefined) note.title = title;
+      if (req.body.content !== undefined) note.content = content;
+      if (req.body.tags !== undefined) note.tags = tags;
+      if (req.body.isPinned !== undefined) note.isPinned = isPinned;
 
       await note.save();
 

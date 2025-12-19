@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link, useNavigate } from "react-router-dom";
-import Password from "../../components/Input/Password";
-import { validateEmail } from "../../utils/Helper";
+import PasswordInput from "../../components/Input/PasswordInput";
 import axiosInstance from "../../utils/axiosInstance";
 
 const Login = () => {
@@ -15,19 +14,6 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (!validateEmail(trimmedEmail)) {
-      setError("Please enter a valid email");
-      return;
-    }
-
-    if (!trimmedPassword) {
-      setError("Password cannot be empty");
-      return;
-    }
-
     setError("");
 
     try {
@@ -35,17 +21,16 @@ const Login = () => {
       const response = await axiosInstance.post(
         "/login",
         {
-          email: trimmedEmail,
-          password: trimmedPassword,
-        },
-        {
-          withCredentials: true, // ✅ allow backend to send cookies
+          email: email.trim(),
+          password: password.trim(),
         }
       );
 
-      if (response.data && !response.data.error) {
+      if (response.data && response.data.accessToken) {
+        localStorage.setItem("token", response.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.refreshToken);
         navigate("/dashboard");
-      }
+      } else if (response.data?.message) setError(response.data.message);
     } catch (error) {
       if (error.response?.data?.message) {
         setError(error.response.data.message);
@@ -77,7 +62,7 @@ const Login = () => {
               autoComplete="email"
             />
 
-            <Password
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
