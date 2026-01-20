@@ -1,26 +1,16 @@
 require("dotenv").config();
-const config = require("./config.json");
-const mongoose = require("mongoose");
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const helmet = require("helmet");
 const bcrypt = require("bcrypt");
-const { body, validationResult, oneOf } = require("express-validator");
-const { authenticateToken } = require("./utilities");
+const jwt = require("jsonwebtoken");
 
 const User = require("./models/user.model");
-const Note = require("./models/note.model");
 
 const app = express();
 
-// Sanitize mongoose queries to prevent injection attacks
-mongoose.set("sanitizeFilter", true);
-
-// === SECURITY & BASIC MIDDLEWARE ===
+// ===== BASIC MIDDLEWARE =====
 app.use(express.json());
-app.use(helmet()); // 🛡️ Protects against XSS, CSP, etc.
-
 app.use(
   cors({
     origin: [
@@ -30,116 +20,82 @@ app.use(
   })
 );
 
-// --- TOKEN HELPERS ---
-function createAccessToken(user) {
-  return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "10m",
-  });
-}
-function createRefreshToken(user) {
-  return jwt.sign({ _id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
-    expiresIn: "7d",
-  });
-}
+// ===== CONNECT DB =====
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error(err));
 
+// ===== TEST ROUTE =====
 app.get("/", (req, res) => {
-  res.json({ data: "Hello Server Running ✅" });
+  res.json({ message: "Server running ✅" });
 });
 
-// create-account
-app.post(
-  "/create-account",
-  [
-    body("fullName").trim().escape(),
-    body("email").isEmail().normalizeEmail(),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters"),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty())
-        return res
-          .status(400)
-          .json({ error: true, message: errors.array()[0].msg });
+// ===== REGISTER =====
+app.post("/register", async (req, res) => {
+  try {
+    const { fullName, email, password } = req.body;
 
-      const { fullName, email, password } = req.body;
-
-      const isUser = await User.findOne({ email });
-      if (isUser)
-        return res
-          .status(409)
-          .json({ error: true, message: "User already exists" });
-
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const user = new User({ fullName, email, password: hashedPassword });
-      await user.save();
-
-      const accessToken = createAccessToken(user);
-      const refreshToken = createRefreshToken(user);
-
-      return res.status(201).json({
-        error: false,
-        message: "Registration successful",
-        accessToken,
-        refreshToken,
-        user: { id: user._id, fullName, email },
-      });
-    } catch (err) {
-      console.error("❌ Create Account Error:", err);
-      return res
-        .status(500)
-        .json({ error: true, message: "Internal Server Error" });
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
     }
-  }
-);
 
-// ========== LOGIN ==========
-app.post(
-  "/login",
-  [
-    body("email").isEmail().withMessage("Please enter a valid email.").normalizeEmail(),
-    body("password").notEmpty().withMessage("Password is required."),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty())
-        return res
-          .status(400)
-          .json({ error: true, message: errors.array()[0].msg });
-
-      const { email, password } = req.body;
-
-      const user = await User.findOne({ email });
-
-      if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res
-          .status(401)
-          .json({ error: true, message: "Invalid credentials" });
-      }
-
-      const accessToken = createAccessToken(user);
-      const refreshToken = createRefreshToken(user);
-
-      res.json({
-        error: false,
-        message: "Login successful",
-        accessToken,
-        refreshToken,
-        user: { id: user._id, fullName: user.fullName, email: user.email },
-      });
-    } catch (err) {
-      console.error("❌ Login Error:", err);
-      return res
-        .status(500)
-        .json({ error: true, message: "Internal Server Error" });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: "User already exists" });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      fullName,
+      email,
+      password: hashedPassword,
+    });
+
+    res.status(201).json({
+      message: "Account created successfully",
+      user: { id: user._id, fullName, email },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
-);
+});
+
+// ===== LOGIN =====
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: { id: user._id, fullName: user.fullName, email: user.email },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // get user
 app.get("/get-user", authenticateToken, async (req, res) => {
@@ -343,18 +299,10 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
   }
 });
 
-const startServer = async () => {
-  try {
-    await mongoose.connect(config.connectionString);
-    console.log("✅ MongoDB connected successfully");
-    const PORT = process.env.PORT || 8000;
-    app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
-  }
-};
-
-startServer();
+// ===== START SERVER =====
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
 
 module.exports = app;
