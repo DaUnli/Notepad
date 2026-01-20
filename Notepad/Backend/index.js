@@ -4,7 +4,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
+const { body, validationResult, oneOf } = require("express-validator");
+const { authenticateToken } = require("./utilities");
+const Note = require("./models/note.model");
 const User = require("./models/user.model");
 
 const app = express();
