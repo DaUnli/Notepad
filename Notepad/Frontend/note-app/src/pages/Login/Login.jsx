@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link, useNavigate } from "react-router-dom";
-import PasswordInput from "../../components/Input/PasswordInput";
+import Password from "../../components/Input/Password";
 import axiosInstance from "../../utils/axiosInstance";
 
 const Login = () => {
@@ -62,7 +62,7 @@ const Login = () => {
               autoComplete="email"
             />
 
-            <PasswordInput
+            <Password
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"

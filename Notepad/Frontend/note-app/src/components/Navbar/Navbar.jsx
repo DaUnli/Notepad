@@ -1,11 +1,19 @@
 import React from "react";
 import ProfileInfo from "../Cards/ProfileInfo";
 import Searchbar from "../Searchbar/Searchbar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Navbar = ({ userInfo, onSearchNote, handleClearSearch }) => {
   const [searchQuery, setSearchQuery] = React.useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ simple login check
+  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+
+  // ❌ hide search on login & signup pages
+  const hideSearch =
+    location.pathname === "/login" || location.pathname === "/signup";
 
   const onLogout = () => {
     localStorage.clear();
@@ -20,25 +28,35 @@ const Navbar = ({ userInfo, onSearchNote, handleClearSearch }) => {
 
   const onClearSearch = () => {
     setSearchQuery("");
-    handleClearSearch()
+    handleClearSearch();
   };
+
   return (
     <div className="bg-white flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-2 drop-shadow">
       <div className="w-full sm:w-auto flex items-center justify-between mb-2 sm:mb-0">
-        <h2 className="text-xl font-medium text-black">NOTE NI </h2>
+        <h2 className="text-xl font-medium text-black">NOTE NI</h2>
+
         <div className="sm:hidden">
-          <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+          {isLoggedIn && (
+            <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+          )}
         </div>
       </div>
 
-      <Searchbar
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        handleSearch={handleSearch}
-        onClearSearch={onClearSearch}
-      />
+      {/* ✅ Searchbar shown only when logged in AND not on login/signup */}
+      {isLoggedIn && !hideSearch && (
+        <Searchbar
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          handleSearch={handleSearch}
+          onClearSearch={onClearSearch}
+        />
+      )}
+
       <div className="hidden sm:block">
-        <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+        {isLoggedIn && (
+          <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
+        )}
       </div>
     </div>
   );
