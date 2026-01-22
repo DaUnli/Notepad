@@ -15,13 +15,11 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // 1. Email Validation
     if (!validateEmail(email)) {
       setError("Please enter a valid email");
       return;
     }
 
-    // 2. Password Length Validation (8 Characters)
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
       return;
@@ -30,13 +28,11 @@ const Login = () => {
     setError("");
 
     try {
-      // Note: withCredentials should be true in your axiosInstance for secure cookies
       const response = await axiosInstance.post("/login", {
         email,
         password,
       });
 
-      // If using Cookies, you don't need to manually set localStorage
       if (response.data && response.data.accessToken) {
         localStorage.setItem("token", response.data.accessToken);
         navigate("/dashboard");
