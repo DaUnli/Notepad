@@ -20,18 +20,22 @@ const Navbar = ({ userInfo, onSearchNote, handleClearSearch }) => {
 
   const onClearSearch = () => {
     setSearchQuery("");
-    handleClearSearch()
+    handleClearSearch();
   };
+
   return (
     <div className="bg-white flex items-center justify-between px-6 py-2 drop-shadow">
-      <h2 className="text-xt font-medium text-black py-2">NOTE NI </h2>
+      <h2 className="text-xl font-medium text-black py-2">NOTE NI</h2>
 
-      <Searchbar
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        handleSearch={handleSearch}
-        onClearSearch={onClearSearch}
-      />
+      {/* Conditionally render Searchbar only if userInfo exists */}
+      {userInfo && (
+        <Searchbar
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          handleSearch={handleSearch}
+          onClearSearch={onClearSearch}
+        />
+      )}
 
       <ProfileInfo userInfo={userInfo} onLogout={onLogout} />
     </div>

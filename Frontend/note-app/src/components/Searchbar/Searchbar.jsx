@@ -1,22 +1,31 @@
-import React from 'react'
-import { FaSearch, FaTimes } from 'react-icons/fa'
-
+import React from 'react';
+import { FaSearch, FaTimes } from 'react-icons/fa';
 
 const Searchbar = ({ value, onChange, handleSearch, onClearSearch }) => {
   return (
-    <div className="w-80 flex items-center px-4 border border-gray-300 rounded-lg">
+    <div className="w-80 flex items-center px-4 bg-slate-100 rounded-md">
       <input 
         type="text" 
         placeholder="Search notes..."
-        className="w-full text-xs bg-transparent outline-none py-[11px]"
+        className="w-full text-xs bg-transparent py-[11px] outline-none"
         value={value}
         onChange={onChange}
       />
 
-        <FaSearch className="text-gray-400 cursor-pointer" onClick={handleSearch} />
-        {value && <FaTimes className="text-gray-400 cursor-pointer ml-2" onClick={onClearSearch} />}
-    </div>
-  )
-}
+      {/* Show Clear icon only when there is text in the input */}
+      {value && (
+        <FaTimes 
+          className="text-xl text-slate-500 cursor-pointer hover:text-black mr-3" 
+          onClick={onClearSearch} 
+        />
+      )}
 
-export default Searchbar
+      <FaSearch 
+        className="text-slate-400 cursor-pointer hover:text-black" 
+        onClick={handleSearch} 
+      />
+    </div>
+  );
+};
+
+export default Searchbar;
