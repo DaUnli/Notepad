@@ -9,9 +9,9 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        await axiosInstance.get("/get-user"); // 👈 backend auth check
+        await axiosInstance.get("/get-user"); // this needs cookies
         setIsAuth(true);
-      } catch (error) {
+      } catch {
         setIsAuth(false);
       } finally {
         setLoading(false);

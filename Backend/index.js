@@ -19,7 +19,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "https://notepad-24hm.onrender.com",
+    origin: ["http://localhost:5173", "https://notepadbyunli.onrender.com"],
     credentials: true,
   }),
 );
@@ -59,7 +59,7 @@ app.post("/create-account", async (req, res) => {
 
   res.cookie("accessToken", token, {
     httpOnly: true,
-    sameSite: "strict",
+    sameSite: "none",
     secure: false,
     maxAge: 3600000,
   });
@@ -83,7 +83,7 @@ app.post("/login", async (req, res) => {
 
   res.cookie("accessToken", token, {
     httpOnly: true,
-    sameSite: "strict",
+    sameSite: "none",
     secure: false,
     maxAge: 3600000,
   });

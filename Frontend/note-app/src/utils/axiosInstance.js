@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "https://notepadbyunli.onrender.com", // your backend URL
-  withCredentials: true,            // 👈 crucial for cookies
+  baseURL: ["http://localhost:5000", "https://notepadbyunli.onrender.com"],
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },

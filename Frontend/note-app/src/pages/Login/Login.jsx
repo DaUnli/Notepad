@@ -32,8 +32,6 @@ const Login = () => {
 
       if (response.data.message === "Login successful") {
         navigate("/home");
-      } else {
-        setError(response.data.message || "Login failed");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Server error");
@@ -48,7 +46,9 @@ const Login = () => {
         <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl shadow-slate-200/60 p-8 md:p-10">
           <form onSubmit={handleLogin} className="flex flex-col">
             <div className="mb-8 text-center">
-              <h4 className="text-2xl font-bold text-slate-900">Welcome Back</h4>
+              <h4 className="text-2xl font-bold text-slate-900">
+                Welcome Back
+              </h4>
               <p className="text-sm text-slate-500 mt-2">
                 Please enter your details to log in.
               </p>
@@ -82,7 +82,9 @@ const Login = () => {
 
             {error && (
               <div className="bg-red-50 border border-red-100 rounded-lg p-3 mt-5">
-                <p className="text-red-600 text-xs font-medium text-center">{error}</p>
+                <p className="text-red-600 text-xs font-medium text-center">
+                  {error}
+                </p>
               </div>
             )}
 
@@ -95,7 +97,10 @@ const Login = () => {
 
             <p className="text-sm text-center text-slate-500 mt-8">
               Don't have an account?{" "}
-              <Link to="/signup" className="font-semibold text-blue-600 hover:underline">
+              <Link
+                to="/signup"
+                className="font-semibold text-blue-600 hover:underline"
+              >
                 Create an Account
               </Link>
             </p>
