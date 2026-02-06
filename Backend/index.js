@@ -19,7 +19,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://notepadbyunli.onrender.com"],
+    origin: ["http://localhost:5173", "https://notepad-24hm.onrender.com"],
     credentials: true,
   }),
 );
