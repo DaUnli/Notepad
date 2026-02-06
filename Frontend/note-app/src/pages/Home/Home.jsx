@@ -47,11 +47,14 @@ const Home = () => {
   const getUserInfo = async () => {
     try {
       const response = await axiosInstance.get("/get-user");
-      setUserInfo(response.data.user);
+      if (response.data && response.data.user) {
+        setUserInfo(response.data.user);
+      }
     } catch (error) {
       navigate("/login");
     }
   };
+
 
   const getAllNotes = async () => {
     try {

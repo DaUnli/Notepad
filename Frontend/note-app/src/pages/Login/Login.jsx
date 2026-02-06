@@ -30,11 +30,22 @@ const Login = () => {
     try {
       const response = await axiosInstance.post("/login", { email, password });
 
-      if (response.data.message === "Login successful") {
+      if (response.data) {
         navigate("/home");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Server error");
+      console.error("Login Error:", err); // Look at your browser console!
+
+      if (err.response) {
+        // Server responded with a status code outside 2xx
+        setError(err.response.data.message);
+      } else if (err.request) {
+        // Request was made but no response was received
+        setError("Server is not responding. Is it running?");
+      } else {
+        // Something happened setting up the request
+        setError("Request error: " + err.message);
+      }
     }
   };
 

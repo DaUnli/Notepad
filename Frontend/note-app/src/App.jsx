@@ -17,6 +17,7 @@ const routes = createBrowserRouter([
         <Home />
       </ProtectedRoute>
     ),
+    children: <Home />
   },
 ]);
 
