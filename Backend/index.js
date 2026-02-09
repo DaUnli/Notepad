@@ -13,73 +13,51 @@ import Note from "./models/note.model.js";
 dotenv.config();
 const app = express();
 
-/* ===== MIDDLEWARE ===== */
 app.use(express.json());
 app.use(cookieParser());
 
-// FIX 1: Ensure CORS allows credentials and specifically matches your frontend URL
 app.use(
   cors({
-    origin: "https://notepad-24hm.onrender.com",
+    origin: "https://notepad-24hm.onrender.com", // frontend URL
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
-/* ===== DATABASE ===== */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
-  .catch((err) => {
-    console.error("MongoDB Connection Error:", err);
-  });
+  .catch(console.error);
 
-/* ===== AUTH HELPERS ===== */
-// Centralized cookie options to prevent repetition errors
 const cookieOptions = {
   httpOnly: true,
-  // If in production, must be 'none' and 'secure: true'
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: process.env.NODE_ENV === "production",
-  maxAge: 3600000, // 1 hour
+  sameSite: "none",
+  secure: true,
+  maxAge: 3600000,
 };
 
-/* ===== AUTH ROUTES ===== */
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to the Notepad API" });
+});
 
-// Register
+// REGISTER
 app.post("/create-account", async (req, res) => {
   const { fullName, email, password } = req.body;
-
-  if (!fullName || !email || !password)
-    return res.status(400).json({ message: "All fields required" });
 
   const exists = await User.findOne({ email });
   if (exists) return res.status(400).json({ message: "User exists" });
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const user = await User.create({
-    fullName,
-    email,
-    password: hashedPassword,
-  });
+  const hashed = await bcrypt.hash(password, 10);
+  const user = await User.create({ fullName, email, password: hashed });
 
   const token = jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
     expiresIn: "1h",
   });
 
-  // FIX 2: Applied proper cookie options here too
   res.cookie("accessToken", token, cookieOptions);
-
-  res.json({
-    error: false,
-    message: "Account created",
-    user: { email: user.email, fullName: user.fullName },
-  });
+  res.json({ message: "Account created" });
 });
 
-// Login
+// LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -93,36 +71,23 @@ app.post("/login", async (req, res) => {
     expiresIn: "1h",
   });
 
-  // FIX 3: Consistent cookie settings
   res.cookie("accessToken", token, cookieOptions);
-
-  res.json({
-    error: false,
-    message: "Login successful",
-    user: { email: user.email, fullName: user.fullName },
-  });
+  res.json({ message: "Login successful" });
 });
 
+// LOGOUT
 app.post("/logout", (req, res) => {
-  // To clear a cookie, options must match the ones used to set it
-  res.clearCookie("accessToken", {
-    ...cookieOptions,
-    maxAge: 0,
-  });
+  res.clearCookie("accessToken", cookieOptions);
   res.json({ message: "Logged out" });
 });
 
-/* ===== NOTES ROUTES (Logic remains same, added try/catch for safety) ===== */
-
+// AUTH CHECK
 app.get("/get-user", authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ user });
-  } catch (e) {
-    res.status(500).json({ message: "Server error" });
-  }
+  const user = await User.findById(req.user._id).select("-password");
+  res.json({ user });
 });
+
+/* ===== NOTES ===== */
 
 // ... [Rest of your notes routes remain largely the same]
 // Just ensure they all use 'authenticateToken' middleware and have proper error handling
@@ -215,16 +180,8 @@ app.put("/update-note-pinned/:id", authenticateToken, async (req, res) => {
 
 // Get all notes
 app.get("/get-all-notes", authenticateToken, async (req, res) => {
-  try {
-    const notes = await Note.find({ userId: req.user._id }).sort({
-      isPinned: -1, // 📌 pinned notes first
-      updatedAt: -1, // newest on top inside each group
-    });
-
-    res.json({ notes });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch notes" });
-  }
+  const notes = await Note.find({ userId: req.user._id });
+  res.json({ notes });
 });
 
 app.delete("/delete-note/:id", authenticateToken, async (req, res) => {

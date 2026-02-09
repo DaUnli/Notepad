@@ -28,23 +28,17 @@ const Login = () => {
     setError("");
 
     try {
-      const response = await axiosInstance.post("/login", { email, password });
+      await axiosInstance.post("/login", { email, password });
 
-      if (response.data) {
-        navigate("/home");
-      }
+      // ✅ verify cookie + token works
+      await axiosInstance.get("/get-user");
+
+      navigate("/home");
     } catch (err) {
-      console.error("Login Error:", err); // Look at your browser console!
-
       if (err.response) {
-        // Server responded with a status code outside 2xx
         setError(err.response.data.message);
-      } else if (err.request) {
-        // Request was made but no response was received
-        setError("Server is not responding. Is it running?");
       } else {
-        // Something happened setting up the request
-        setError("Request error: " + err.message);
+        setError("Server not responding");
       }
     }
   };
